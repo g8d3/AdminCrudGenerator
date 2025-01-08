@@ -41,23 +41,33 @@ export class OpenAPIAdmin {
     const operations = this.parser.getOperations();
 
     Object.entries(operations).forEach(([path, operation]) => {
+      // Handle POST/PUT operations for forms
       if (operation.requestBody) {
-        const schema = (operation.requestBody as OpenAPIV3.RequestBodyObject).content['application/json'].schema;
-        components[`${path}Form`] = this.generateComponent({
+        const requestBody = operation.requestBody as OpenAPIV3.RequestBodyObject;
+        const schema = requestBody.content['application/json'].schema;
+        const method = path.split(' ')[0];
+        const endpoint = path.split(' ')[1];
+
+        components[`${method} ${endpoint} Form`] = this.generateComponent({
           type: 'form',
           schema: schema as OpenAPIV3.SchemaObject,
-          path,
-          method: path.split(' ')[0],
+          path: endpoint,
+          method,
         });
       }
 
+      // Handle GET operations for lists
       if (operation.responses?.['200']) {
-        const schema = (operation.responses['200'] as OpenAPIV3.ResponseObject).content?.['application/json']?.schema;
+        const response = operation.responses['200'] as OpenAPIV3.ResponseObject;
+        const schema = response.content?.['application/json']?.schema;
         if (schema) {
-          components[`${path}List`] = this.generateComponent({
+          const method = path.split(' ')[0];
+          const endpoint = path.split(' ')[1];
+
+          components[`${method} ${endpoint} List`] = this.generateComponent({
             type: 'list',
             schema: schema as OpenAPIV3.SchemaObject,
-            path,
+            path: endpoint,
           });
         }
       }
