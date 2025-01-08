@@ -4,9 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { OpenAPIV3 } from 'openapi-types';
 
 // Sample OpenAPI spec for demonstration
-const sampleSpec = {
+const sampleSpec: OpenAPIV3.Document = {
   openapi: '3.0.0',
   info: {
     title: 'Sample API',
@@ -28,9 +29,9 @@ const sampleSpec = {
                   items: {
                     type: 'object',
                     properties: {
-                      id: { type: 'number' },
+                      id: { type: 'integer' },
                       name: { type: 'string' },
-                      email: { type: 'string' },
+                      email: { type: 'string', format: 'email' },
                     },
                   },
                 },
@@ -65,7 +66,7 @@ const sampleSpec = {
                 schema: {
                   type: 'object',
                   properties: {
-                    id: { type: 'number' },
+                    id: { type: 'integer' },
                     name: { type: 'string' },
                     email: { type: 'string' },
                   },
@@ -77,10 +78,10 @@ const sampleSpec = {
       },
     },
   },
+  components: {
+    schemas: {}
+  }
 };
-
-// Create a new admin instance
-const admin = new OpenAPIAdmin(sampleSpec, { framework: 'react' });
 
 // Generate components
 const UserForm = () => {
@@ -175,7 +176,7 @@ export function Demo() {
   const generateCode = () => {
     const admin = new OpenAPIAdmin(sampleSpec, { framework });
     const components = admin.generateAll();
-    const componentKey = viewType === 'form' ? '/api/users POST Form' : '/api/users GET List';
+    const componentKey = viewType === 'form' ? 'POST /api/users Form' : 'GET /api/users List';
     return components[componentKey]?.code || 'No component generated';
   };
 
