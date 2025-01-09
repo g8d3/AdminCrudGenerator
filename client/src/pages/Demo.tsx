@@ -3,11 +3,13 @@ import { OpenAPIAdmin, Framework } from '@/lib/openapi-admin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OpenAPIV3 } from 'openapi-types';
+import { useToast } from '@/hooks/use-toast';
 
-// Sample OpenAPI spec for demonstration
-const sampleSpec: OpenAPIV3.Document = {
+// Default OpenAPI spec for demonstration
+const defaultSpec: OpenAPIV3.Document = {
   openapi: '3.0.0',
   info: {
     title: 'Sample API',
@@ -169,12 +171,33 @@ const UserList = () => {
 const queryClient = new QueryClient();
 
 export function Demo() {
+  const { toast } = useToast();
   const [framework, setFramework] = useState<Framework>('react');
   const [viewType, setViewType] = useState<'form' | 'list'>('form');
+  const [spec, setSpec] = useState<OpenAPIV3.Document>(defaultSpec);
+  const [specInput, setSpecInput] = useState(JSON.stringify(defaultSpec, null, 2));
+
+  // Update OpenAPI spec
+  const updateSpec = () => {
+    try {
+      const newSpec = JSON.parse(specInput);
+      setSpec(newSpec);
+      toast({
+        title: 'Success',
+        description: 'OpenAPI specification updated successfully',
+      });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: 'Invalid JSON format',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Generate code for display
   const generateCode = () => {
-    const admin = new OpenAPIAdmin(sampleSpec, { framework });
+    const admin = new OpenAPIAdmin(spec, { framework });
     const components = admin.generateAll();
     const componentKey = viewType === 'form' ? 'POST /api/users Form' : 'GET /api/users List';
     return components[componentKey]?.code || 'No component generated';
@@ -208,6 +231,17 @@ export function Demo() {
                 >
                   Angular
                 </Button>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block font-medium">OpenAPI Specification</label>
+                <Textarea 
+                  value={specInput}
+                  onChange={(e) => setSpecInput(e.target.value)}
+                  className="font-mono text-sm"
+                  rows={10}
+                />
+                <Button onClick={updateSpec}>Update Spec</Button>
               </div>
             </div>
           </CardContent>

@@ -1,15 +1,28 @@
 import { OpenAPIV3 } from 'openapi-types';
+import { Framework, GeneratorOptions } from './core/types';
 import { OpenAPIParser } from './core/OpenAPIParser';
 import { ComponentGenerator } from './core/ComponentGenerator';
-import { 
-  Framework, 
-  GeneratorOptions, 
-  ComponentConfig,
-  GeneratedComponent
-} from './core/types';
-import { generateReactComponent } from './generators/react';
-import { generateVueComponent } from './generators/vue';
-import { generateAngularComponent } from './generators/angular';
+
+/**
+ * Generate an admin interface from an OpenAPI specification
+ * @param openapiSpec OpenAPI specification URL or object
+ * @param framework Target framework ('react' | 'vue' | 'angular')
+ * @param options Additional generator options
+ * @returns Generated admin interface components
+ */
+export async function adminFor(
+  openapiSpec: string | OpenAPIV3.Document,
+  framework: Framework,
+  options: Partial<Omit<GeneratorOptions, 'framework'>> = {}
+) {
+  // If spec is a URL, fetch it
+  const spec = typeof openapiSpec === 'string'
+    ? await fetch(openapiSpec).then(res => res.json())
+    : openapiSpec;
+
+  const admin = new OpenAPIAdmin(spec, { framework, ...options });
+  return admin.generateAll();
+}
 
 export class OpenAPIAdmin {
   private parser: OpenAPIParser;
@@ -23,21 +36,8 @@ export class OpenAPIAdmin {
     this.generator = new ComponentGenerator(options);
   }
 
-  public generateComponent(config: ComponentConfig): GeneratedComponent {
-    switch (this.options.framework) {
-      case 'react':
-        return generateReactComponent(config);
-      case 'vue':
-        return generateVueComponent(config);
-      case 'angular':
-        return generateAngularComponent(config);
-      default:
-        throw new Error(`Unsupported framework: ${this.options.framework}`);
-    }
-  }
-
-  public generateAll(): Record<string, GeneratedComponent> {
-    const components: Record<string, GeneratedComponent> = {};
+  public generateAll() {
+    const components: Record<string, any> = {};
     const operations = this.parser.getOperations();
 
     Object.entries(operations).forEach(([path, operation]) => {
@@ -48,7 +48,7 @@ export class OpenAPIAdmin {
         const method = path.split(' ')[0];
         const endpoint = path.split(' ')[1];
 
-        components[`${method} ${endpoint} Form`] = this.generateComponent({
+        components[`${method} ${endpoint} Form`] = this.generator.generate({
           type: 'form',
           schema: schema as OpenAPIV3.SchemaObject,
           path: endpoint,
@@ -64,7 +64,7 @@ export class OpenAPIAdmin {
           const method = path.split(' ')[0];
           const endpoint = path.split(' ')[1];
 
-          components[`${method} ${endpoint} List`] = this.generateComponent({
+          components[`${method} ${endpoint} List`] = this.generator.generate({
             type: 'list',
             schema: schema as OpenAPIV3.SchemaObject,
             path: endpoint,
