@@ -208,7 +208,8 @@ const UserList = () => {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [editedValues, setEditedValues] = useState<Record<string, any>>({});
 
-  const { data, isLoading, error } = useQuery({
+  // Fetch data
+  const { data = [], isLoading, error } = useQuery({
     queryKey: ['/api/users'],
     queryFn: async () => {
       console.log('Fetching users...');
@@ -220,141 +221,7 @@ const UserList = () => {
     },
   });
 
-  const columns = React.useMemo<ColumnDef<any>[]>(() => [
-    {
-      accessorKey: 'id',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          ID
-          <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-    },
-    {
-      accessorKey: 'name',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Name
-          <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const value = row.getValue('name');
-        const isEditing = editingRow === row.id;
-
-        if (isEditing) {
-          return (
-            <Input
-              value={editedValues['name'] ?? value}
-              onChange={(e) =>
-                setEditedValues(prev => ({
-                  ...prev,
-                  name: e.target.value
-                }))
-              }
-              className="h-8"
-            />
-          );
-        }
-
-        return <div>{value as string}</div>;
-      },
-    },
-    {
-      accessorKey: 'email',
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Email
-          <ChevronDown className="ml-2 h-4 w-4" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const value = row.getValue('email');
-        const isEditing = editingRow === row.id;
-
-        if (isEditing) {
-          return (
-            <Input
-              value={editedValues['email'] ?? value}
-              onChange={(e) =>
-                setEditedValues(prev => ({
-                  ...prev,
-                  email: e.target.value
-                }))
-              }
-              className="h-8"
-            />
-          );
-        }
-
-        return <div>{value as string}</div>;
-      },
-    },
-    {
-      id: 'actions',
-      cell: ({ row }) => {
-        const isEditing = editingRow === row.id;
-
-        return (
-          <div className="flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    updateMutation.mutate({
-                      id: row.original.id,
-                      data: { ...row.original, ...editedValues }
-                    });
-                  }}
-                >
-                  <Save className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setEditingRow(null);
-                    setEditedValues({});
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingRow(row.id)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteMutation.mutate(row.original.id)}
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        );
-      },
-    },
-  ], [editingRow, editedValues]);
-
+  // Memoize mutations to prevent unnecessary re-renders
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const res = await fetch(`/api/users/${id}`, {
@@ -391,8 +258,148 @@ const UserList = () => {
     },
   });
 
+  // Memoize column definitions
+  const columns = React.useMemo<ColumnDef<any>[]>(
+    () => [
+      {
+        accessorKey: 'id',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            ID
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+      },
+      {
+        accessorKey: 'name',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Name
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const value = row.getValue('name');
+          const isEditing = editingRow === row.id;
+
+          if (isEditing) {
+            return (
+              <Input
+                value={editedValues['name'] ?? value}
+                onChange={(e) =>
+                  setEditedValues(prev => ({
+                    ...prev,
+                    name: e.target.value
+                  }))
+                }
+                className="h-8"
+              />
+            );
+          }
+
+          return <div>{value as string}</div>;
+        },
+      },
+      {
+        accessorKey: 'email',
+        header: ({ column }) => (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Email
+            <ChevronDown className="ml-2 h-4 w-4" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const value = row.getValue('email');
+          const isEditing = editingRow === row.id;
+
+          if (isEditing) {
+            return (
+              <Input
+                value={editedValues['email'] ?? value}
+                onChange={(e) =>
+                  setEditedValues(prev => ({
+                    ...prev,
+                    email: e.target.value
+                  }))
+                }
+                className="h-8"
+              />
+            );
+          }
+
+          return <div>{value as string}</div>;
+        },
+      },
+      {
+        id: 'actions',
+        cell: ({ row }) => {
+          const isEditing = editingRow === row.id;
+
+          return (
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      updateMutation.mutate({
+                        id: row.original.id,
+                        data: { ...row.original, ...editedValues }
+                      });
+                    }}
+                  >
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingRow(null);
+                      setEditedValues({});
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingRow(row.id)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteMutation.mutate(row.original.id)}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+          );
+        },
+      },
+    ],
+    [editingRow, editedValues, updateMutation, deleteMutation]
+  );
+
+  // Memoize table instance
   const table = useReactTable({
-    data: data || [],
+    data,
     columns,
     state: {
       sorting,
