@@ -12,6 +12,14 @@ A full-stack TypeScript application that generates admin interfaces from OpenAPI
 - Built-in UI components using Radix UI
 - TypeScript support
 
+## Screenshots
+
+![image](https://github.com/user-attachments/assets/f274e1df-43cb-4fbb-9005-7316a70a3c17)
+![image](https://github.com/user-attachments/assets/71f89893-4857-4c0f-9aa9-b8bb4a79c0f9)
+![image](https://github.com/user-attachments/assets/9446e40a-b85b-407e-949b-f51e2014d4dd)
+![image](https://github.com/user-attachments/assets/9b30843f-5a49-4498-b84a-bef91ed50dbd)
+
+
 ## Getting Started
 
 1. Click "Run" in your Repl to start the development server
