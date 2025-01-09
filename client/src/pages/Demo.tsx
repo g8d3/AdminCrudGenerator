@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { OpenAPIAdmin, Framework } from '@/lib/openapi-admin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { OpenAPIV3 } from 'openapi-types';
@@ -85,7 +84,7 @@ const defaultSpec: OpenAPIV3.Document = {
   }
 };
 
-// Generate components
+// Generate components for preview
 const UserForm = () => {
   const mutation = useMutation({
     mutationFn: async (data: any) => {
@@ -99,17 +98,13 @@ const UserForm = () => {
     },
   });
 
-  const onSubmit = (data: any) => {
-    mutation.mutate(data);
-  };
-
   return (
     <Card>
       <CardContent className="pt-6">
         <form onSubmit={(e) => {
           e.preventDefault();
           const formData = new FormData(e.currentTarget);
-          onSubmit(Object.fromEntries(formData));
+          mutation.mutate(Object.fromEntries(formData));
         }} className="space-y-4">
           <div>
             <input
@@ -170,6 +165,25 @@ const UserList = () => {
 
 const queryClient = new QueryClient();
 
+const usageCode = `// Install the package
+npm install openapi-admin-generator
+
+// Import and use
+import { adminFor } from 'openapi-admin-generator';
+
+// Generate admin interface components
+const components = await adminFor(
+  'https://api.example.com/openapi.json', // OpenAPI spec URL or object
+  'react', // Framework: 'react' | 'vue' | 'angular'
+  {
+    baseUrl: '/api', // Optional base URL for API requests
+    customTemplates: {}, // Optional custom component templates
+  }
+);
+
+// Use the generated components
+const { UserForm, UserList } = components;`;
+
 export function Demo() {
   const { toast } = useToast();
   const [framework, setFramework] = useState<Framework>('react');
@@ -205,86 +219,111 @@ export function Demo() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="container mx-auto p-8">
-        <Card className="mb-8">
+      <div className="container mx-auto p-8 space-y-8">
+        <h1 className="text-3xl font-bold mb-8">OpenAPI Admin Interface Generator</h1>
+
+        {/* Framework Selection */}
+        <Card>
           <CardHeader>
-            <CardTitle>OpenAPI Admin Interface Generator</CardTitle>
+            <CardTitle>1. Select Framework</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6">
-              <div className="flex gap-4">
-                <Button 
-                  onClick={() => setFramework('react')}
-                  variant={framework === 'react' ? 'default' : 'outline'}
-                >
-                  React
-                </Button>
-                <Button 
-                  onClick={() => setFramework('vue')}
-                  variant={framework === 'vue' ? 'default' : 'outline'}
-                >
-                  Vue
-                </Button>
-                <Button 
-                  onClick={() => setFramework('angular')}
-                  variant={framework === 'angular' ? 'default' : 'outline'}
-                >
-                  Angular
-                </Button>
-              </div>
-
-              <div className="space-y-4">
-                <label className="block font-medium">OpenAPI Specification</label>
-                <Textarea 
-                  value={specInput}
-                  onChange={(e) => setSpecInput(e.target.value)}
-                  className="font-mono text-sm"
-                  rows={10}
-                />
-                <Button onClick={updateSpec}>Update Spec</Button>
-              </div>
+            <div className="flex gap-4">
+              <Button 
+                onClick={() => setFramework('react')}
+                variant={framework === 'react' ? 'default' : 'outline'}
+              >
+                React
+              </Button>
+              <Button 
+                onClick={() => setFramework('vue')}
+                variant={framework === 'vue' ? 'default' : 'outline'}
+              >
+                Vue
+              </Button>
+              <Button 
+                onClick={() => setFramework('angular')}
+                variant={framework === 'angular' ? 'default' : 'outline'}
+              >
+                Angular
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Code Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Generated Code</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="form" onValueChange={(value) => setViewType(value as 'form' | 'list')}>
-                <TabsList>
-                  <TabsTrigger value="form">Form</TabsTrigger>
-                  <TabsTrigger value="list">List</TabsTrigger>
-                </TabsList>
-                <TabsContent value="form">
-                  <pre className="bg-gray-100 p-4 rounded-lg overflow-auto max-h-[500px] text-sm">
-                    {generateCode()}
-                  </pre>
-                </TabsContent>
-                <TabsContent value="list">
-                  <pre className="bg-gray-100 p-4 rounded-lg overflow-auto max-h-[500px] text-sm">
-                    {generateCode()}
-                  </pre>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+        {/* OpenAPI Spec Editor */}
+        <Card>
+          <CardHeader>
+            <CardTitle>2. OpenAPI Specification</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Textarea 
+                value={specInput}
+                onChange={(e) => setSpecInput(e.target.value)}
+                className="font-mono text-sm"
+                rows={10}
+              />
+              <Button onClick={updateSpec}>Update Spec</Button>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Live Preview */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Live Preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div id="preview" className="space-y-4">
-                {viewType === 'form' ? <UserForm /> : <UserList />}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Usage Code */}
+        <Card>
+          <CardHeader>
+            <CardTitle>3. Usage Code</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Textarea 
+              value={usageCode}
+              readOnly
+              className="font-mono text-sm"
+              rows={15}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Generated Code */}
+        <Card>
+          <CardHeader>
+            <CardTitle>4. Generated Component Code</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
+              <Button 
+                onClick={() => setViewType('form')}
+                variant={viewType === 'form' ? 'default' : 'outline'}
+              >
+                Form Component
+              </Button>
+              <Button 
+                onClick={() => setViewType('list')}
+                variant={viewType === 'list' ? 'default' : 'outline'}
+              >
+                List Component
+              </Button>
+            </div>
+            <Textarea 
+              value={generateCode()}
+              readOnly
+              className="font-mono text-sm"
+              rows={20}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Live Preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>5. Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div id="preview" className="space-y-4">
+              {viewType === 'form' ? <UserForm /> : <UserList />}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </QueryClientProvider>
   );
