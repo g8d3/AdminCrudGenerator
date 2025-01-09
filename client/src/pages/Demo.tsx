@@ -3,9 +3,45 @@ import { OpenAPIAdmin, Framework } from '@/lib/openapi-admin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { useQuery, useMutation, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { 
+  useQuery, 
+  useMutation, 
+  QueryClient, 
+  QueryClientProvider 
+} from '@tanstack/react-query';
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  RowSelectionState,
+  GroupingState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getGroupedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { OpenAPIV3 } from 'openapi-types';
 import { useToast } from '@/hooks/use-toast';
+import { ChevronDown, Settings, Edit, Trash, Group, Save, X } from 'lucide-react';
 
 // Default OpenAPI spec for demonstration
 const defaultSpec: OpenAPIV3.Document = {
@@ -134,6 +170,150 @@ const UserForm = () => {
 };
 
 const UserList = () => {
+  const { toast } = useToast();
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [grouping, setGrouping] = useState<GroupingState>([]);
+  const [editingRow, setEditingRow] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Record<string, any>>({});
+
+  const columns = React.useMemo<ColumnDef<any>[]>(() => [
+    {
+      accessorKey: 'id',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          ID
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+    },
+    {
+      accessorKey: 'name',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Name
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const value = row.getValue('name');
+        const isEditing = editingRow === row.id;
+
+        if (isEditing) {
+          return (
+            <Input
+              value={editedValues['name'] ?? value}
+              onChange={(e) => 
+                setEditedValues(prev => ({
+                  ...prev,
+                  name: e.target.value
+                }))
+              }
+              className="h-8"
+            />
+          );
+        }
+
+        return <div>{value as string}</div>;
+      },
+    },
+    {
+      accessorKey: 'email',
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Email
+          <ChevronDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const value = row.getValue('email');
+        const isEditing = editingRow === row.id;
+
+        if (isEditing) {
+          return (
+            <Input
+              value={editedValues['email'] ?? value}
+              onChange={(e) => 
+                setEditedValues(prev => ({
+                  ...prev,
+                  email: e.target.value
+                }))
+              }
+              className="h-8"
+            />
+          );
+        }
+
+        return <div>{value as string}</div>;
+      },
+    },
+    {
+      id: 'actions',
+      cell: ({ row }) => {
+        const isEditing = editingRow === row.id;
+
+        return (
+          <div className="flex items-center gap-2">
+            {isEditing ? (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    updateMutation.mutate({
+                      id: row.original.id,
+                      data: { ...row.original, ...editedValues }
+                    });
+                  }}
+                >
+                  <Save className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingRow(null);
+                    setEditedValues({});
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingRow(row.id)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteMutation.mutate(row.original.id)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
+        );
+      },
+    },
+  ], [editingRow, editedValues]);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['/api/users'],
     queryFn: async () => {
@@ -143,20 +323,193 @@ const UserList = () => {
     },
   });
 
-  if (isLoading) return <div>Loading...</div>;
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'User deleted successfully',
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'User updated successfully',
+      });
+      setEditingRow(null);
+      setEditedValues({});
+    },
+  });
+
+  const table = useReactTable({
+    data: data || [],
+    columns,
+    state: {
+      sorting,
+      columnVisibility,
+      rowSelection,
+      columnFilters,
+      grouping,
+    },
+    enableRowSelection: true,
+    enableGrouping: true,
+    onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onGroupingChange: setGrouping,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getGroupedRowModel: getGroupedRowModel(),
+  });
+
   if (error) return <div>Error: {(error as Error).message}</div>;
 
   return (
     <Card>
       <CardContent className="pt-6">
-        <div className="space-y-4">
-          {data.map((user: any) => (
-            <div key={user.id} className="p-4 border rounded">
-              <div>ID: {user.id}</div>
-              <div>Name: {user.name}</div>
-              <div>Email: {user.email}</div>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-4">
+          <Input
+            placeholder="Filter names..."
+            value={(table.getColumn('name')?.getFilterValue() as string) ?? ''}
+            onChange={(event) =>
+              table.getColumn('name')?.setFilterValue(event.target.value)
+            }
+            className="max-w-sm"
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGrouping(grouping.length ? [] : ['id'])}
+            >
+              <Group className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {table
+                  .getAllColumns()
+                  .filter((column) => column.getCanHide())
+                  .map((column) => {
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={column.id}
+                        className="capitalize"
+                        checked={column.getIsVisible()}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
+                      >
+                        {column.id}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                [...Array(5)].map((_, idx) => (
+                  <TableRow key={idx}>
+                    {columns.map((_, colIdx) => (
+                      <TableCell key={colIdx}>
+                        <Skeleton className="h-4 w-[100px]" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            {table.getFilteredSelectedRowModel().rows.length} of{" "}
+            {table.getFilteredRowModel().rows.length} row(s) selected.
+          </div>
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
