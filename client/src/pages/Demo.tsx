@@ -278,6 +278,25 @@ const UserList = () => {
 
 const queryClient = new QueryClient();
 
+const usageCode = `// Install the package
+npm install openapi-admin-generator
+
+// Import and use
+import { adminFor } from 'openapi-admin-generator';
+
+// Generate admin interface components
+const components = await adminFor(
+  'https://api.example.com/openapi.json', // OpenAPI spec URL or object
+  'react', // Framework: 'react' | 'vue' | 'angular'
+  {
+    baseUrl: '/api', // Optional base URL for API requests
+    customTemplates: {}, // Optional custom component templates
+  }
+);
+
+// Use the generated components
+const { UserForm, UserList } = components;`;
+
 export function Demo() {
   const [framework, setFramework] = useState<Framework>('react');
   const [viewType, setViewType] = useState<'form' | 'list'>('form');
@@ -356,26 +375,56 @@ export function Demo() {
           </CardContent>
         </Card>
 
-        {/* Live Preview */}
+        {/* Usage Code */}
         <Card>
           <CardHeader>
-            <CardTitle>3. Live Preview</CardTitle>
+            <CardTitle>3. Usage Code</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4 mb-4">
+            <Textarea
+              value={usageCode}
+              readOnly
+              className="font-mono text-sm"
+              rows={15}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Generated Code */}
+        <Card>
+          <CardHeader>
+            <CardTitle>4. Generated Component Code</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex gap-4">
               <Button
                 onClick={() => setViewType('form')}
                 variant={viewType === 'form' ? 'default' : 'outline'}
               >
-                Form View
+                Form Component
               </Button>
               <Button
                 onClick={() => setViewType('list')}
                 variant={viewType === 'list' ? 'default' : 'outline'}
               >
-                List View
+                List Component
               </Button>
             </div>
+            <Textarea
+              value={generateCode()}
+              readOnly
+              className="font-mono text-sm"
+              rows={20}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Live Preview */}
+        <Card>
+          <CardHeader>
+            <CardTitle>5. Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
             <ErrorBoundary>
               <div id="preview" className="space-y-4">
                 {viewType === 'form' ? <UserForm /> : <UserList />}
