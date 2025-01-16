@@ -30,10 +30,9 @@ const defaultSpec: OpenAPIV3.Document = {
     '/api/users': {
       get: {
         summary: 'List all users',
-        description: 'Returns a list of users',
         responses: {
           '200': {
-            description: 'A list of users',
+            description: 'OK',
             content: {
               'application/json': {
                 schema: {
@@ -43,7 +42,7 @@ const defaultSpec: OpenAPIV3.Document = {
                     properties: {
                       id: { type: 'integer' },
                       name: { type: 'string' },
-                      email: { type: 'string', format: 'email' },
+                      email: { type: 'string' },
                     },
                   },
                 },
@@ -54,7 +53,6 @@ const defaultSpec: OpenAPIV3.Document = {
       },
       post: {
         summary: 'Create a new user',
-        description: 'Creates a new user with the given data',
         requestBody: {
           required: true,
           content: {
@@ -64,7 +62,7 @@ const defaultSpec: OpenAPIV3.Document = {
                 required: ['name', 'email'],
                 properties: {
                   name: { type: 'string' },
-                  email: { type: 'string', format: 'email' },
+                  email: { type: 'string' },
                 },
               },
             },
@@ -72,7 +70,7 @@ const defaultSpec: OpenAPIV3.Document = {
         },
         responses: {
           '201': {
-            description: 'User created successfully',
+            description: 'Created',
             content: {
               'application/json': {
                 schema: {
@@ -90,12 +88,9 @@ const defaultSpec: OpenAPIV3.Document = {
       },
     },
   },
-  components: {
-    schemas: {}
-  }
 };
 
-// Simple error boundary component
+// Error boundary component
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: Error | null }> {
   constructor(props: { children: React.ReactNode }) {
     super(props);
@@ -118,31 +113,89 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
         </Card>
       );
     }
-
     return this.props.children;
   }
 }
 
-const queryClient = new QueryClient();
+// Convert PostgREST Swagger to OpenAPI 3.0
+const convertPostgRESTSwagger = (swagger: any): OpenAPIV3.Document => {
+  if (!swagger.paths) return swagger;
 
-const usageCode = `// Install the package
-npm install openapi-admin-generator
+  const paths: Record<string, any> = {};
 
-// Import and use
-import { adminFor } from 'openapi-admin-generator';
+  // Process each path
+  Object.entries(swagger.paths).forEach(([path, methods]: [string, any]) => {
+    // Skip the root path that returns the OpenAPI description
+    if (path === '/') return;
 
-// Generate admin interface components
-const components = await adminFor(
-  'https://api.example.com/openapi.json', // OpenAPI spec URL or object
-  'react', // Framework: 'react' | 'vue' | 'angular'
-  {
-    baseUrl: '/api', // Optional base URL for API requests
-    customTemplates: {}, // Optional custom component templates
-  }
-);
+    paths[path] = {};
 
-// Use the generated components
-const { UserForm, UserList } = components;`;
+    // Handle GET endpoints
+    if (methods.get) {
+      paths[path].get = {
+        ...methods.get,
+        responses: {
+          '200': {
+            description: methods.get.responses['200'].description,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: swagger.definitions[path.slice(1)]?.properties || {},
+                  },
+                },
+              },
+            },
+          },
+        },
+      };
+    }
+
+    // Handle POST endpoints
+    if (methods.post) {
+      const schema = swagger.definitions[path.slice(1)];
+      paths[path].post = {
+        ...methods.post,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: schema?.properties || {},
+                required: schema?.required || [],
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Created',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: schema?.properties || {},
+                },
+              },
+            },
+          },
+        },
+      };
+    }
+  });
+
+  return {
+    openapi: '3.0.0',
+    info: swagger.info,
+    paths,
+    components: {
+      schemas: swagger.definitions,
+    },
+  };
+};
 
 // Dynamic Form Component
 const DynamicForm = ({ schema, endpoint }: { schema: any; endpoint: string }) => {
@@ -288,49 +341,26 @@ const DynamicList = ({ schema, endpoint }: { schema: any; endpoint: string }) =>
   );
 };
 
-// Convert Swagger 2.0 to OpenAPI 3.0
-const convertToOpenAPI3 = (swagger: any): OpenAPIV3.Document => {
-  if (swagger.swagger === '2.0') {
-    return {
-      openapi: '3.0.0',
-      info: swagger.info,
-      paths: Object.entries(swagger.paths).reduce((acc: any, [path, methods]: [string, any]) => {
-        acc[path] = Object.entries(methods).reduce((methodAcc: any, [method, operation]: [string, any]) => {
-          methodAcc[method] = {
-            ...operation,
-            responses: Object.entries(operation.responses).reduce((respAcc: any, [code, response]: [string, any]) => {
-              respAcc[code] = {
-                ...response,
-                content: response.schema ? {
-                  'application/json': {
-                    schema: response.schema
-                  }
-                } : undefined
-              };
-              return respAcc;
-            }, {}),
-            ...(operation.parameters ? {
-              requestBody: {
-                required: true,
-                content: {
-                  'application/json': {
-                    schema: operation.parameters.find((p: any) => p.in === 'body')?.schema || {}
-                  }
-                }
-              }
-            } : {})
-          };
-          return methodAcc;
-        }, {});
-        return acc;
-      }, {}),
-      components: {
-        schemas: swagger.definitions || {}
-      }
-    };
+const queryClient = new QueryClient();
+
+const usageCode = `// Install the package
+npm install openapi-admin-generator
+
+// Import and use
+import { adminFor } from 'openapi-admin-generator';
+
+// Generate admin interface components
+const components = await adminFor(
+  'https://api.example.com/openapi.json', // OpenAPI spec URL or object
+  'react', // Framework: 'react' | 'vue' | 'angular'
+  {
+    baseUrl: '/api', // Optional base URL for API requests
+    customTemplates: {}, // Optional custom component templates
   }
-  return swagger;
-};
+);
+
+// Use the generated components
+const { UserForm, UserList } = components;`;
 
 const Demo = () => {
   const { toast } = useToast();
@@ -343,7 +373,7 @@ const Demo = () => {
   const updateSpec = () => {
     try {
       const parsedSpec = JSON.parse(specInput);
-      const convertedSpec = convertToOpenAPI3(parsedSpec);
+      const convertedSpec = convertPostgRESTSwagger(parsedSpec);
       console.log('Converted spec:', convertedSpec);
       setSpec(convertedSpec);
       toast({
@@ -369,11 +399,11 @@ const Demo = () => {
 
       let componentKey = '';
       if (viewType === 'form') {
-        const postPath = paths.find(([_, methods]) => methods.post)?.[0];
-        componentKey = postPath ? `POST ${postPath} Form` : '';
+        const [path, methods] = paths.find(([_, m]) => m.post) || [];
+        componentKey = path ? `POST ${path} Form` : '';
       } else {
-        const getPath = paths.find(([_, methods]) => methods.get)?.[0];
-        componentKey = getPath ? `GET ${getPath} List` : '';
+        const [path, methods] = paths.find(([_, m]) => m.get) || [];
+        componentKey = path ? `GET ${path} List` : '';
       }
 
       if (!componentKey) {
