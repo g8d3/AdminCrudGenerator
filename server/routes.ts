@@ -104,6 +104,50 @@ export function registerRoutes(app: Express): Server {
     }
   });
 
+  // Dynamic route handler for model operations
+  app.all('/api/:model/*', async (req, res) => {
+    try {
+      const { model } = req.params;
+      const schemaPath = path.join(process.cwd(), 'attached_assets', 'schema.json');
+      const schemaContent = await fs.readFile(schemaPath, 'utf-8');
+      const schema = JSON.parse(schemaContent);
+
+      const modelPath = `/${model}`;
+      const modelData = schema.paths[modelPath];
+
+      if (!modelData) {
+        return res.status(404).json({ 
+          error: 'Not Found',
+          message: `Model '${model}' does not exist in the schema`
+        });
+      }
+
+      // Check if the HTTP method is supported for this model
+      const method = req.method.toLowerCase();
+      if (!modelData[method]) {
+        return res.status(405).json({ 
+          error: 'Method Not Allowed',
+          message: `${req.method} is not supported for model '${model}'`
+        });
+      }
+
+      // For now, return a mock response based on the model's schema
+      res.json({
+        success: true,
+        message: `Handled ${req.method} request for model '${model}'`,
+        model: modelData[method],
+        parameters: modelData[method].parameters,
+        responses: modelData[method].responses
+      });
+    } catch (error) {
+      console.error(`Error handling request for ${req.params.model}:`, error);
+      res.status(500).json({ 
+        error: 'Internal Server Error',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
