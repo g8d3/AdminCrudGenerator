@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { OpenAPIAdmin, Framework } from '@/lib/openapi-admin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import {
 import { OpenAPIV3 } from 'openapi-types';
 import { useToast } from '@/hooks/use-toast';
 import { ChevronDown } from 'lucide-react';
+import { useForm } from 'react-hook-form';
 
 // Default OpenAPI spec for demonstration
 const defaultSpec: OpenAPIV3.Document = {
@@ -122,160 +123,6 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 }
 
-// Generate components for preview
-const UserForm = () => {
-  const mutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-  });
-
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          const formData = new FormData(e.currentTarget);
-          mutation.mutate(Object.fromEntries(formData));
-        }} className="space-y-4">
-          <div>
-            <Input
-              name="name"
-              type="text"
-              placeholder="Name"
-              required
-            />
-          </div>
-          <div>
-            <Input
-              name="email"
-              type="email"
-              placeholder="Email"
-              required
-            />
-          </div>
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? 'Creating...' : 'Create User'}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
-  );
-};
-
-const UserList = () => {
-  const [sortField, setSortField] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-
-  const { data = [], isLoading, error } = useQuery({
-    queryKey: ['/api/users'],
-    queryFn: async () => {
-      const res = await fetch('/api/users');
-      if (!res.ok) throw new Error(await res.text());
-      return res.json();
-    },
-  });
-
-  const sortedData = React.useMemo(() => {
-    if (!sortField) return data;
-    return [...data].sort((a, b) => {
-      if (a[sortField] < b[sortField]) return sortDirection === 'asc' ? -1 : 1;
-      if (a[sortField] > b[sortField]) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [data, sortField, sortDirection]);
-
-  const toggleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
-
-  if (error) {
-    return (
-      <Card className="bg-destructive/10">
-        <CardContent className="pt-6">
-          <div className="text-destructive">Error: {(error as Error).message}</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('id')}
-                  >
-                    ID
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('name')}
-                  >
-                    Name
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>
-                  <Button
-                    variant="ghost"
-                    onClick={() => toggleSort('email')}
-                  >
-                    Email
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : sortedData.length > 0 ? (
-                sortedData.map((user: any) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.id}</TableCell>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
-                    No users found.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
 const queryClient = new QueryClient();
 
 const usageCode = `// Install the package
@@ -297,25 +144,270 @@ const components = await adminFor(
 // Use the generated components
 const { UserForm, UserList } = components;`;
 
-export function Demo() {
+// Dynamic Form Component
+const DynamicForm = ({ schema, endpoint }: { schema: any; endpoint: string }) => {
+  const form = useForm();
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Form submitted successfully',
+      });
+      form.reset();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <form onSubmit={form.handleSubmit(data => mutation.mutate(data))} className="space-y-4">
+          {Object.entries(schema.properties || {}).map(([key, prop]: [string, any]) => (
+            <div key={key}>
+              <Input
+                {...form.register(key)}
+                type={prop.type === 'number' ? 'number' : 'text'}
+                placeholder={prop.description || key}
+                required={schema.required?.includes(key)}
+              />
+            </div>
+          ))}
+          <Button type="submit" disabled={mutation.isPending}>
+            {mutation.isPending ? 'Submitting...' : 'Submit'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Dynamic List Component
+const DynamicList = ({ schema, endpoint }: { schema: any; endpoint: string }) => {
+  const [sortField, setSortField] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  const { data = [], isLoading, error } = useQuery({
+    queryKey: [endpoint],
+    queryFn: async () => {
+      const res = await fetch(endpoint);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    },
+  });
+
+  const properties = schema.type === 'array' ? schema.items.properties : schema.properties;
+
+  const sortedData = React.useMemo(() => {
+    if (!sortField || !data) return data;
+    return [...data].sort((a, b) => {
+      if (a[sortField] < b[sortField]) return sortDirection === 'asc' ? -1 : 1;
+      if (a[sortField] > b[sortField]) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortField, sortDirection]);
+
+  const toggleSort = useCallback((field: string) => {
+    setSortField(prev => field === prev ? prev : field);
+    setSortDirection(prev => field === sortField ? (prev === 'asc' ? 'desc' : 'asc') : 'asc');
+  }, [sortField]);
+
+  if (error) {
+    return (
+      <Card className="bg-destructive/10">
+        <CardContent className="pt-6">
+          <div className="text-destructive">Error: {(error as Error).message}</div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {Object.entries(properties || {}).map(([key]) => (
+                  <TableHead key={key}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => toggleSort(key)}
+                    >
+                      {key}
+                      <ChevronDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={Object.keys(properties || {}).length} className="h-24 text-center">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              ) : sortedData.length > 0 ? (
+                sortedData.map((item: any, index: number) => (
+                  <TableRow key={index}>
+                    {Object.keys(properties || {}).map(key => (
+                      <TableCell key={key}>{item[key]}</TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={Object.keys(properties || {}).length} className="h-24 text-center">
+                    No data found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Convert Swagger 2.0 to OpenAPI 3.0
+const convertToOpenAPI3 = (swagger: any): OpenAPIV3.Document => {
+  if (swagger.swagger === '2.0') {
+    return {
+      openapi: '3.0.0',
+      info: swagger.info,
+      paths: Object.entries(swagger.paths).reduce((acc: any, [path, methods]: [string, any]) => {
+        acc[path] = Object.entries(methods).reduce((methodAcc: any, [method, operation]: [string, any]) => {
+          methodAcc[method] = {
+            ...operation,
+            responses: Object.entries(operation.responses).reduce((respAcc: any, [code, response]: [string, any]) => {
+              respAcc[code] = {
+                ...response,
+                content: response.schema ? {
+                  'application/json': {
+                    schema: response.schema
+                  }
+                } : undefined
+              };
+              return respAcc;
+            }, {}),
+            ...(operation.parameters ? {
+              requestBody: {
+                required: true,
+                content: {
+                  'application/json': {
+                    schema: operation.parameters.find((p: any) => p.in === 'body')?.schema || {}
+                  }
+                }
+              }
+            } : {})
+          };
+          return methodAcc;
+        }, {});
+        return acc;
+      }, {}),
+      components: {
+        schemas: swagger.definitions || {}
+      }
+    };
+  }
+  return swagger;
+};
+
+const Demo = () => {
+  const { toast } = useToast();
   const [framework, setFramework] = useState<Framework>('react');
   const [viewType, setViewType] = useState<'form' | 'list'>('form');
   const [spec, setSpec] = useState<OpenAPIV3.Document>(defaultSpec);
   const [specInput, setSpecInput] = useState(JSON.stringify(defaultSpec, null, 2));
 
-  // Generate code for display
-  const generateCode = () => {
-    console.log('Generating code for:', viewType);
+  // Update spec and regenerate components
+  const updateSpec = () => {
+    try {
+      const parsedSpec = JSON.parse(specInput);
+      const convertedSpec = convertToOpenAPI3(parsedSpec);
+      console.log('Converted spec:', convertedSpec);
+      setSpec(convertedSpec);
+      toast({
+        title: 'Success',
+        description: 'Schema updated successfully',
+      });
+    } catch (err) {
+      console.error('Error updating spec:', err);
+      toast({
+        title: 'Error',
+        description: `Failed to parse schema: ${(err as Error).message}`,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Generate code for display with error handling
+  const generateCode = useCallback(() => {
     try {
       const admin = new OpenAPIAdmin(spec, { framework });
       const components = admin.generateAll();
-      const componentKey = viewType === 'form' ? 'POST /api/users Form' : 'GET /api/users List';
+      const paths = Object.entries(spec.paths || {});
+
+      let componentKey = '';
+      if (viewType === 'form') {
+        const postPath = paths.find(([_, methods]) => methods.post)?.[0];
+        componentKey = postPath ? `POST ${postPath} Form` : '';
+      } else {
+        const getPath = paths.find(([_, methods]) => methods.get)?.[0];
+        componentKey = getPath ? `GET ${getPath} List` : '';
+      }
+
+      if (!componentKey) {
+        return `No ${viewType} component found in the specification`;
+      }
+
       return components[componentKey]?.code || 'No component generated';
     } catch (err) {
       console.error('Error generating code:', err);
       return `Error generating code: ${(err as Error).message}`;
     }
-  };
+  }, [spec, framework, viewType]);
+
+  // Get current schema and endpoint for preview
+  const previewProps = React.useMemo(() => {
+    const paths = Object.entries(spec.paths || {});
+    if (viewType === 'form') {
+      const [path, methods] = paths.find(([_, m]) => m.post) || [];
+      return path && methods?.post?.requestBody?.content?.['application/json']?.schema
+        ? {
+            schema: methods.post.requestBody.content['application/json'].schema,
+            endpoint: path
+          }
+        : null;
+    } else {
+      const [path, methods] = paths.find(([_, m]) => m.get) || [];
+      return path && methods?.get?.responses?.['200']?.content?.['application/json']?.schema
+        ? {
+            schema: methods.get.responses['200'].content['application/json'].schema,
+            endpoint: path
+          }
+        : null;
+    }
+  }, [spec, viewType]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -364,13 +456,7 @@ export function Demo() {
                 className="font-mono text-sm"
                 rows={10}
               />
-              <Button onClick={() => {
-                try {
-                  setSpec(JSON.parse(specInput));
-                } catch (err) {
-                  console.error('Invalid JSON:', err);
-                }
-              }}>Update Spec</Button>
+              <Button onClick={updateSpec}>Update Spec</Button>
             </div>
           </CardContent>
         </Card>
@@ -427,7 +513,13 @@ export function Demo() {
           <CardContent>
             <ErrorBoundary>
               <div id="preview" className="space-y-4">
-                {viewType === 'form' ? <UserForm /> : <UserList />}
+                {previewProps ? (
+                  viewType === 'form' 
+                    ? <DynamicForm {...previewProps} />
+                    : <DynamicList {...previewProps} />
+                ) : (
+                  <div>No {viewType} configuration found in the specification</div>
+                )}
               </div>
             </ErrorBoundary>
           </CardContent>
@@ -435,4 +527,6 @@ export function Demo() {
       </div>
     </QueryClientProvider>
   );
-}
+};
+
+export { Demo };
