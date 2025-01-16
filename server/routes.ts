@@ -1,5 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import fs from "fs/promises";
+import path from "path";
 
 // Mock data store
 let users = [
@@ -29,6 +31,77 @@ export function registerRoutes(app: Express): Server {
 
     users.push(newUser);
     res.status(201).json(newUser);
+  });
+
+  // GET /api/schema - Get the OpenAPI schema
+  app.get('/api/schema', async (req, res) => {
+    try {
+      const schemaPath = path.join(process.cwd(), 'attached_assets', 'schema.json');
+      const schemaContent = await fs.readFile(schemaPath, 'utf-8');
+      const schema = JSON.parse(schemaContent);
+      res.json(schema);
+    } catch (error) {
+      console.error('Error reading schema:', error);
+      res.status(500).json({ 
+        error: 'Failed to load schema',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // GET /api/models - Get available models from schema
+  app.get('/api/models', async (req, res) => {
+    try {
+      const schemaPath = path.join(process.cwd(), 'attached_assets', 'schema.json');
+      const schemaContent = await fs.readFile(schemaPath, 'utf-8');
+      const schema = JSON.parse(schemaContent);
+
+      // Extract models from schema paths
+      const models = Object.keys(schema.paths).filter(path => path !== '/');
+
+      res.json({
+        models: models.map(path => ({
+          name: path.replace(/^\//, ''), // Remove leading slash
+          path: path,
+          operations: schema.paths[path]
+        }))
+      });
+    } catch (error) {
+      console.error('Error processing models:', error);
+      res.status(500).json({ 
+        error: 'Failed to process models',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // GET /api/models/:model - Get specific model details
+  app.get('/api/models/:model', async (req, res) => {
+    try {
+      const { model } = req.params;
+      const schemaPath = path.join(process.cwd(), 'attached_assets', 'schema.json');
+      const schemaContent = await fs.readFile(schemaPath, 'utf-8');
+      const schema = JSON.parse(schemaContent);
+
+      const modelPath = `/${model}`;
+      const modelData = schema.paths[modelPath];
+
+      if (!modelData) {
+        return res.status(404).json({ error: `Model ${model} not found` });
+      }
+
+      res.json({
+        name: model,
+        operations: modelData,
+        definitions: schema.definitions?.[model]
+      });
+    } catch (error) {
+      console.error(`Error processing model ${req.params.model}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to process model',
+        details: error instanceof Error ? error.message : String(error)
+      });
+    }
   });
 
   const httpServer = createServer(app);
