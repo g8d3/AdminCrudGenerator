@@ -3,6 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
+import { ModelTable } from "@/components/ModelTable";
+import { ModelForm } from "@/components/ModelForm";
 
 interface Model {
   name: string;
@@ -36,7 +38,7 @@ export function AdminPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
-      
+
       <Tabs defaultValue={modelsData?.models[0]?.name} className="w-full">
         <TabsList className="w-full flex-wrap">
           {modelsData?.models.map((model) => (
@@ -48,16 +50,31 @@ export function AdminPage() {
 
         {modelsData?.models.map((model) => (
           <TabsContent key={model.name} value={model.name}>
-            <Card>
-              <CardHeader>
-                <CardTitle>{model.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <pre className="bg-gray-100 p-4 rounded">
-                  {JSON.stringify(model.operations, null, 2)}
-                </pre>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Add {model.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ModelForm 
+                    model={model.name} 
+                    operations={model.operations}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>{model.name} List</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ModelTable 
+                    model={model.name} 
+                    operations={model.operations}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         ))}
       </Tabs>

@@ -36,33 +36,41 @@ export function ModelTable({ model, operations }: ModelTableProps) {
     );
   }
 
-  // Extract parameter names from the GET operation parameters
-  const columns = operations.get?.parameters?.map((param: any) => {
-    const ref = param.$ref;
-    if (ref) {
-      const paramName = ref.split('.').pop();
-      return paramName;
-    }
-    return param.name;
-  }).filter(Boolean) || [];
+  // Extract fields from the schema parameters
+  const fields = operations?.get?.parameters
+    ?.filter((param: any) => param.$ref?.includes('rowFilter'))
+    ?.map((param: any) => {
+      const ref = param.$ref;
+      if (ref) {
+        // Extract the field name from the parameter reference
+        // Format: "#/parameters/rowFilter.model.fieldname"
+        const parts = ref.split('.');
+        return parts[parts.length - 1];
+      }
+      return null;
+    })
+    .filter(Boolean) || [];
+
+  // Handle the case where the response is the model operation details
+  const tableData = Array.isArray(data) ? data : (data?.rows || []);
 
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            {columns.map((column: string) => (
-              <TableHead key={column}>{column}</TableHead>
+            {fields.map((field: string) => (
+              <TableHead key={field}>{field}</TableHead>
             ))}
             <TableHead>Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {Array.isArray(data) ? (
-            data.map((row: any, index: number) => (
+          {tableData.length > 0 ? (
+            tableData.map((row: any, index: number) => (
               <TableRow key={index}>
-                {columns.map((column: string) => (
-                  <TableCell key={column}>{row[column]}</TableCell>
+                {fields.map((field: string) => (
+                  <TableCell key={field}>{row[field]}</TableCell>
                 ))}
                 <TableCell>
                   <div className="flex gap-2">
@@ -74,7 +82,7 @@ export function ModelTable({ model, operations }: ModelTableProps) {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={columns.length + 1} className="text-center">
+              <TableCell colSpan={fields.length + 1} className="text-center">
                 No data available
               </TableCell>
             </TableRow>
