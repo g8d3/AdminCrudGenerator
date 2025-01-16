@@ -105,7 +105,7 @@ export function registerRoutes(app: Express): Server {
   });
 
   // Dynamic route handler for model operations
-  app.all('/api/:model/*', async (req, res) => {
+  app.all('/api/:model', async (req, res) => {
     try {
       const { model } = req.params;
       const schemaPath = path.join(process.cwd(), 'attached_assets', 'schema.json');
